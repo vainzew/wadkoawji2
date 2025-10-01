@@ -62,27 +62,33 @@ function tambah_nol_didepan($value, $threshold = null)
 
 function generateHardwareId()
 {
-    // Cache hardware ID generation to avoid repeated system calls
-    $cacheKey = 'hardware_id_' . md5($_SERVER['DOCUMENT_ROOT'] ?? 'unknown');
-    $cachedId = cache($cacheKey);
-    
-    if ($cachedId !== null) {
-        return $cachedId;
+    // PERFORMANCE OPTIMIZATION: Cache hardware ID in session (doesn't change during session)
+    // This prevents expensive exec() calls on every request
+    if (session()->has('cached_hardware_id')) {
+        return session('cached_hardware_id');
     }
-    
-    // Focus on server-specific info that doesn't change with browser/domain
+
+    // Generate a unique hardware ID based on system information
+    // This ID should be different on each PC/server to prevent unauthorized copying
     $serverInfo = [
-        php_uname('n'), // hostname
+        php_uname('n'), // hostname (unique per machine)
         php_uname('s'), // OS name
-        php_uname('m'), // machine type
+        php_uname('m'), // machine type (architecture)
+        php_uname('r'), // OS release version
         $_SERVER['DOCUMENT_ROOT'] ?? 'unknown', // installation path
-        // Remove HTTP_HOST and SERVER_NAME to support multi-domain
+        $_SERVER['SERVER_ADDR'] ?? 'no-ip', // Server IP address
     ];
 
-    $hardwareId = md5(implode('|', $serverInfo));
+    // Only try to get MAC address once per session (expensive operation)
+    // This is cached to avoid repeated exec() calls
+    $macAddress = @exec('getmac 2>&1') ?: @exec('ifconfig 2>&1') ?: 'no-mac';
+    $serverInfo[] = $macAddress;
+
+    // Create deterministic hardware ID that changes per machine
+    $hardwareId = md5(implode('|', array_filter($serverInfo)));
     
-    // Cache for 24 hours - hardware ID shouldn't change
-    cache([$cacheKey => $hardwareId], now()->addHours(24));
+    // Cache in session for performance (hardware doesn't change during session)
+    session(['cached_hardware_id' => $hardwareId]);
     
     return $hardwareId;
 }
@@ -284,6 +290,13 @@ function activateApplication($activationCode)
         }
 
         file_put_contents($activationFile, json_encode($activationData, JSON_PRETTY_PRINT));
+
+        // CRITICAL: Clear all activation-related caches after successful activation
+        // This prevents the bug where user gets redirected back to activation after login
+        \Illuminate\Support\Facades\Cache::forget('activation_status_' . $hardwareId);
+        \Illuminate\Support\Facades\Cache::forget('root_activation_check');
+        \Illuminate\Support\Facades\Cache::forget('middleware_activation_' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        \Illuminate\Support\Facades\Cache::forget('server_verification_' . $activationCode);
 
         return ['status' => 'success', 'message' => 'Application activated successfully'];
     }

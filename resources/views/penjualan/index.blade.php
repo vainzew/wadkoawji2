@@ -17,6 +17,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-body">
+                <!-- Range picker akan ditempel di samping search lewat JS -->
                 <div class="table-responsive">
                     <table class="table table-striped table-bordered table-penjualan">
                         <thead>
@@ -42,9 +43,18 @@
 @includeIf('penjualan.detail')
 @endsection
 
+@push('css')
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+@endpush
+
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 <script>
     let table, table1;
+    // Default: tanpa filter (show all)
+    let activeStart = null;
+    let activeEnd = null;
 
     $(function () {
         table = $('.table-penjualan').DataTable({
@@ -54,6 +64,13 @@
             autoWidth: false,
             ajax: {
                 url: '{{ route('penjualan.data') }}',
+                data: function (d) {
+                    // Kirim filter hanya jika user memilih range
+                    if (activeStart && activeEnd) {
+                        d.start_date = activeStart;
+                        d.end_date = activeEnd;
+                    }
+                }
             },
             columns: [
                 {data: 'DT_RowIndex', searchable: false, sortable: false},
@@ -88,6 +105,75 @@
                 {data: 'subtotal'},
             ]
         })
+
+        // Buat input range dan tempel di sebelah right search box DataTables
+        const rangeHtml = `
+            <div class="input-group input-group-sm ms-2" id="sales-range-wrapper" style="max-width: 320px;">
+                <span class="input-group-text"><i class="cil-calendar"></i></span>
+                <input type="text" id="sales-daterange" class="form-control form-control-sm" placeholder="Semua waktu" autocomplete="off" />
+                <button class="btn btn-link btn-clear-range" type="button" id="btn-clear-range" title="Reset"><i class="mynaui-x"></i></button>
+            </div>`;
+        // Tempel di sebelah kiri search (prepend)
+        const $filter = $('.dataTables_filter');
+        if ($filter.length) {
+            $filter.prepend(rangeHtml);
+        }
+
+        // Date Range Picker (samain preset & locale dengan dashboard)
+        const $range = $('#sales-daterange');
+        $range.daterangepicker({
+            opens: 'left',
+            showDropdowns: true,
+            linkedCalendars: false,
+            drops: 'auto',
+            autoUpdateInput: false, // biar placeholder "Semua waktu" sampai user apply
+            locale: {
+                format: 'DD/MM/YYYY',
+                separator: ' - ',
+                applyLabel: 'Terapkan',
+                cancelLabel: 'Batal',
+                fromLabel: 'Dari',
+                toLabel: 'Sampai',
+                customRangeLabel: 'Custom',
+                daysOfWeek: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
+                monthNames: ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                             'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'],
+                firstDay: 1
+            },
+            ranges: {
+               'Hari Ini': [moment(), moment()],
+               'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+               '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
+               '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
+               'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+               'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+            },
+            buttonClasses: 'btn btn-sm',
+            applyButtonClasses: 'btn-primary',
+            cancelButtonClasses: 'btn-light'
+        }, function(start, end, label) {
+            // Update state dari parameter callback (pasti nilai terbaru)
+            activeStart = start.format('YYYY-MM-DD');
+            activeEnd = end.format('YYYY-MM-DD');
+            $range.val(start.format('DD/MM/YYYY') + ' - ' + end.format('DD/MM/YYYY'));
+            table.ajax.reload();
+        });
+
+        // Jaga-jaga: saat event apply dipicu
+        $range.on('apply.daterangepicker', function(ev, picker) {
+            activeStart = picker.startDate.format('YYYY-MM-DD');
+            activeEnd = picker.endDate.format('YYYY-MM-DD');
+            $(this).val(picker.startDate.format('DD/MM/YYYY') + ' - ' + picker.endDate.format('DD/MM/YYYY'));
+            table.ajax.reload();
+        });
+
+        // Reset filter -> tampilkan semua data
+        $('#btn-clear-range').on('click', function(){
+            activeStart = null;
+            activeEnd = null;
+            $range.val('');
+            table.ajax.reload();
+        });
     });
 
     function showDetail(url) {

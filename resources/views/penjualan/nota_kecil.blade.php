@@ -126,11 +126,11 @@
         <table class="products">
             @foreach ($detail as $item)
                 <tr>
-                    <td colspan="3">{{ $item->produk->nama_produk }}</td>
+                    <td colspan="3">{{ $item->nama_produk ?? ($item->produk->nama_produk ?? '-') }}</td>
                 </tr>
                 <tr>
                     <td>{{ format_uang($item->harga_jual) }} x{{ $item->jumlah }}</td>
-                    <td class="text-right">{{ format_uang($item->jumlah * $item->harga_jual) }}</td>
+                    <td class="text-right">{{ format_uang($item->subtotal) }}</td>
                 </tr>
             @endforeach
         </table>
@@ -165,18 +165,25 @@
         
         @if($penjualan->metode_pembayaran === 'QRIS' && $penjualan->qr_code_url)
         <div class="divider"></div>
-        
-        <div class="qr-section" style="text-align: center; margin: 3mm 0;">
-            <p style="font-size: 10pt; margin-bottom: 2mm;">SCAN QR CODE UNTUK BAYAR</p>
-            <div style="display: inline-block; border: 1px solid #000; padding: 2mm;">
+
+        <div class="qr-section" style="text-align: center; margin: 5mm 0;">
+            <p style="font-size: 12pt; margin-bottom: 3mm; font-weight: medium;">
+                SCAN QR CODE UNTUK BAYAR
+            </p>
+            
+            <div style="display: inline-block; padding: 0;"> <!-- border dihapus -->
                 <img src="{{ $penjualan->qr_code_url }}" 
-                     alt="QR Code" 
-                     style="width: 25mm; height: 25mm; display: block;">
+                    alt="QR Code" 
+                    style="width: 50mm; height: 50mm; display: block; margin: 0 auto;">
             </div>
-            <p style="font-size: 9pt; margin-top: 2mm;">Order ID: {{ $penjualan->midtrans_order_id }}</p>
+
+            <p style="font-size: 10pt; margin-top: 3mm;">Order ID: {{ $penjualan->midtrans_order_id }}</p>
+            
             @if($penjualan->payment_expired_at)
-            <p style="font-size: 9pt;">Berlaku sampai:</p>
-            <p style="font-size: 9pt;">{{ date('d/m/Y H:i', strtotime($penjualan->payment_expired_at)) }}</p>
+                <p style="font-size: 10pt; margin-top: 1mm;">Berlaku sampai:</p>
+                <p style="font-size: 10pt;">
+                    {{ date('d/m/Y H:i', strtotime($penjualan->payment_expired_at)) }}
+                </p>
             @endif
         </div>
         @endif

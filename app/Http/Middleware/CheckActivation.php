@@ -9,31 +9,30 @@ class CheckActivation
 {
     public function handle(Request $request, Closure $next)
     {
-        // Skip activation check untuk route activation dan login
-        $excludedRoutes = [
-            'activation.*',
-            'login',
-            'logout',
-            'password.*'
-        ];
+        // ONLY skip activation check for activation routes
+        // All other routes including login MUST be protected
+        if ($request->routeIs('activation.*')) {
+            return $next($request);
+        }
 
-        foreach ($excludedRoutes as $pattern) {
-            if ($request->routeIs($pattern)) {
+        // PERFORMANCE OPTIMIZATION: Skip activation check for AJAX requests
+        // Activation is already checked on page load, no need to re-check on every AJAX call
+        // This significantly speeds up pages with multiple AJAX requests (like transaksi)
+        if ($request->ajax() || $request->wantsJson()) {
+            // Only check if session doesn't have activation flag
+            if (session()->has('activation_verified') && session('activation_verified') === true) {
                 return $next($request);
             }
         }
 
-        // Use cached activation status to avoid repeated checks
-        $cacheKey = 'middleware_activation_' . $request->ip();
-        $status = cache($cacheKey);
-        
-        if ($status === null) {
-            $status = checkActivationStatus();
-            // Cache for 2 minutes to reduce overhead
-            cache([$cacheKey => $status], now()->addMinutes(2));
-        }
+        // Check activation status (with smart caching in helper)
+        $status = checkActivationStatus();
 
+        // If not active, redirect to activation form
         if ($status['status'] !== 'active') {
+            // Clear activation session flag
+            session()->forget('activation_verified');
+            
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'Application not activated',
@@ -44,6 +43,9 @@ class CheckActivation
             return redirect()->route('activation.form')
                 ->with('error', 'Aplikasi belum diaktivasi. ' . $status['message']);
         }
+
+        // Set session flag for AJAX requests to use
+        session(['activation_verified' => true]);
 
         return $next($request);
     }

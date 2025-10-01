@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Services\TelegramService;
 use App\Services\MidtransService; // Tambahkan import Midtrans
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use PDF;
 
 class PenjualanController extends Controller
@@ -32,12 +33,32 @@ class PenjualanController extends Controller
     }
 
     // Rest of the controller methods remain the same
-    public function data()
+    public function data(Request $request)
     {
-        // Use pagination to limit the number of records loaded at once
+        // Biarkan DataTables handle server-side pagination tanpa hard limit
         $penjualan = Penjualan::with('member')
-            ->orderBy('id_penjualan', 'desc')
-            ->limit(1000); // Limit to 1000 records for better performance
+            ->orderBy('id_penjualan', 'desc');
+
+        // Filter by date range if provided (from daterangepicker DD/MM/YYYY)
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        if ($startDate && $endDate) {
+            // Terima format YYYY-MM-DD atau DD/MM/YYYY
+            $parseDate = function($str, $isEnd = false) {
+                if (strpos($str, '/') !== false) {
+                    [$d,$m,$y] = explode('/', $str);
+                    $fmt = sprintf('%04d-%02d-%02d', (int)$y, (int)$m, (int)$d);
+                } else {
+                    $fmt = $str;
+                }
+                return $isEnd ? $fmt . ' 23:59:59' : $fmt . ' 00:00:00';
+            };
+
+            $penjualan->whereBetween('created_at', [
+                $parseDate($startDate, false),
+                $parseDate($endDate, true)
+            ]);
+        }
 
         return datatables()
             ->of($penjualan)

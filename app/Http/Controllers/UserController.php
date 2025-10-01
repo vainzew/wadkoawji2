@@ -140,15 +140,20 @@ class UserController extends Controller
     {
         $user = auth()->user();
         
+        // Validasi fleksibel: hanya name yang wajib, username/email opsional jika disubmit
         $request->validate([
             'name' => 'required|min:3',
-            'username' => 'required|unique:users,username,'.$user->id,
-            'email' => 'required|email|unique:users,email,'.$user->id,
+            'username' => 'sometimes|nullable|unique:users,username,'.$user->id,
+            'email' => 'sometimes|nullable|email|unique:users,email,'.$user->id,
         ]);
         
         $user->name = $request->name;
-        $user->username = $request->username;
-        $user->email = $request->email;
+        if ($request->filled('username')) {
+            $user->username = $request->username;
+        }
+        if ($request->filled('email')) {
+            $user->email = $request->email;
+        }
 
         if ($request->has('password') && $request->password != "") {
             if (Hash::check($request->old_password, $user->password)) {

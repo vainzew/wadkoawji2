@@ -14,9 +14,8 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                    <button onclick="addForm('{{ route('member.store') }}')" class="btn-with-icon btn-main" data-coreui-toggle="modal" data-coreui-target="#modal-form"><i class="mynaui-plus"></i> Tambah</button>
-                    <button onclick="cetakMember('{{ route('member.cetak_member') }}')" class="btn-with-icon btn-another"><i class="mynaui-printer"></i> Cetak Member</button>
-                </div>
+                <button onclick="addForm('{{ route('member.store') }}')" class="btn-with-icon btn-main" data-coreui-toggle="modal" data-coreui-target="#modal-form"><i class="mynaui-plus"></i> Tambah</button>
+                <button onclick="cetakMember('{{ route('member.cetak_member') }}')" class="btn-with-icon btn-another"><i class="mynaui-printer"></i> Cetak Member</button>
             </div>
             <div class="card-body">
                 <form action="" method="post" class="form-member">

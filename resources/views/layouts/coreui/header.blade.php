@@ -8,7 +8,11 @@
     <!-- User Menu -->
     <li class="header-nav-item dropdown" style="height: 56px !important; display: flex !important; align-items: center !important; margin: 0 !important; padding: 0 !important;">
         <a class="header-nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="height: 56px !important; padding: 0 0.75rem !important; display: flex !important; align-items: center !important; justify-content: flex-start !important; text-decoration: none !important; margin: 0 !important; line-height: 1 !important; vertical-align: middle !important;">
-            <img class="rounded-circle" src="https://ui-avatars.com/api/?name={{ urlencode(auth()->user()->name) }}&background=5856d6&color=fff" alt="{{ auth()->user()->name }}" width="32" height="32" style="vertical-align: middle !important; margin: 0 8px 0 0 !important; display: inline-block !important;">
+            @php
+                $user = auth()->user();
+                $avatar = $user && !empty($user->foto) ? url($user->foto) : 'https://ui-avatars.com/api/?name=' . urlencode($user->name ?? 'User') . '&background=5856d6&color=fff';
+            @endphp
+            <img class="rounded-circle img-profil" src="{{ $avatar }}" alt="{{ auth()->user()->name }}" width="32" height="32" style="vertical-align: middle !important; margin: 0 8px 0 0 !important; display: inline-block !important;">
             <span class="d-none d-md-inline" style="vertical-align: middle !important; line-height: 1 !important; margin: 0 !important; display: inline-block !important;">{{ auth()->user()->name }}</span>
         </a>
         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">

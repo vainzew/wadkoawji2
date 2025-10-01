@@ -13,11 +13,16 @@
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <div role="group" aria-label="Kelola Produk">
                     <button onclick="addForm('{{ route('produk.store') }}')" class="btn-with-icon btn-main" data-coreui-toggle="modal" data-coreui-target="#modal-form"><i class="mynaui-plus"></i> Tambah</button>
                     <button onclick="deleteSelected('{{ route('produk.delete_selected') }}')" class="btn-with-icon btn-white"><i class="mynaui-trash"></i> Hapus</button>
                     <button onclick="cetakBarcode('{{ route('produk.cetak_barcode') }}')" class="btn-with-icon btn-another"><i class="mynaui-printer"></i> Cetak Barcode</button>
+                </div>
+                <div>
+                    <button id="btn-low-stock" type="button" class="btn-with-icon btn-secondary" title="Tampilkan produk stok <= 1">
+                        <i class="mynaui-warning"></i> Stock Rendah
+                    </button>
                 </div>
             </div>
             <div class="card-body">
@@ -54,6 +59,7 @@
 @push('scripts')
 <script>
     let table;
+    let lowStockMode = false;
 
     $(function () {
         table = $('.table').DataTable({
@@ -90,6 +96,22 @@
             language: {
                 search: "", // ilangin tulisan "Search:"
                 searchPlaceholder: "Cari produk..." // placeholder di dalam box
+            }
+        });
+
+        // Toggle Low Stock filter
+        $('#btn-low-stock').on('click', function() {
+            lowStockMode = !lowStockMode;
+            $(this).toggleClass('btn-secondary btn-main');
+
+            if (lowStockMode) {
+                // Apply server-side low_stock filter and order stok ascending (column index 8)
+                const url = "{{ route('produk.data') }}" + "?low_stock=1";
+                table.ajax.url(url).load();
+                table.order([[8, 'asc']]).draw();
+            } else {
+                // Reset to default data
+                table.ajax.url("{{ route('produk.data') }}").load();
             }
         });
 

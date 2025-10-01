@@ -299,6 +299,20 @@ class PromoService
                     'current_quantity' => $existingFreeItem->jumlah,
                     'required_quantity' => $freeQuantity
                 ]);
+
+                // Pastikan harga_jual pada item gratis menyimpan harga asli produk
+                // (untuk keperluan GROSS, reporting, dan tampilan harga)
+                if ((int) $existingFreeItem->harga_jual === 0 || $existingFreeItem->harga_jual != $freeProduct->harga_jual) {
+                    $existingFreeItem->harga_jual = $freeProduct->harga_jual;
+                }
+                // Subtotal item gratis harus tetap 0
+                if ((int) $existingFreeItem->subtotal !== 0) {
+                    $existingFreeItem->subtotal = 0;
+                }
+                // Pastikan label GRATIS konsisten
+                if (strpos($existingFreeItem->nama_produk ?? '', '(GRATIS)') === false) {
+                    $existingFreeItem->nama_produk = ($freeProduct->nama_produk ?? 'Produk') . ' (GRATIS)';
+                }
                 
                 // For Buy X Get Y, set the exact quantity needed, not add
                 if ($promo->tipe_promo == 'buy_a_get_b_free') {
@@ -318,7 +332,7 @@ class PromoService
                         'total_quantity' => $existingFreeItem->jumlah
                     ]);
                 }
-                
+
                 return $existingFreeItem;
             }
 
@@ -326,10 +340,12 @@ class PromoService
                 'id_penjualan' => $idPenjualan,
                 'id_produk' => $freeProduct->id_produk,
                 'nama_produk' => $freeProduct->nama_produk . ' (GRATIS)',
-                'harga_jual' => 0, // Gratis
+                // Simpan harga asli untuk kebutuhan gross/reporting
+                'harga_jual' => $freeProduct->harga_jual,
                 'jumlah' => $freeQuantity,
                 'diskon' => 0,
-                'subtotal' => 0, // Gratis
+                // Gratis: subtotal tetap 0
+                'subtotal' => 0,
                 'id_promo' => $promo->id_promo,
                 'promo_description' => $description,
                 'is_free_item' => true

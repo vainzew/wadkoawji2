@@ -42,6 +42,12 @@ class ProdukController extends Controller
                 'produk.barcode',
                 'kategori.nama_kategori'
             ]);
+
+        // Optional filter: show only low stock (stok <= 1) and order by stok ascending
+        if ($request->boolean('low_stock')) {
+            $query->where('produk.stok', '<=', 1)
+                  ->orderBy('produk.stok', 'asc');
+        }
             
         // Apply search if provided (for promo modal search functionality)
         if ($request->has('search_value') && !empty($request->search_value)) {

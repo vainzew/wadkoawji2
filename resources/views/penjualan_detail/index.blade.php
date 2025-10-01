@@ -145,7 +145,7 @@
                                 <input type="text" id="barcode-input" class="form-control" autofocus placeholder="Scan barcode" style="border-radius: 10px 0 0 10px;">
                                 <input type="hidden" class="form-control" name="kode_produk" id="kode_produk">
                                 <span class="input-group-btn">
-                                    <button onclick="tampilProduk()" class="btn btn-primary btn-flat" type="button" style="border-radius: 0 10px 10px 0;"><i class="cil-arrow-right"></i></button>
+                                    <button onclick="tampilProduk()" class="btn-trans btn-main" type="button" style="border-radius: 0 10px 10px 0;"><i class="mynaui-arrow-right"></i></button>
                                 </span>
                             </div>
                         </div>
@@ -167,7 +167,7 @@
 
                 <div class="row">
                     <div class="col-lg-8">
-                        <div class="tampil-bayar text-white bg-primary" style="border-radius: 10px; margin-bottom: 20px;"></div>
+                        <div class="tampil-bayar text-white bg-main" style="border-radius: 10px; margin-bottom: 20px;"></div>
                         <div class="tampil-terbilang"></div>
                     </div>
                     <div class="col-lg-4">
@@ -210,7 +210,7 @@
                                         <div class="input-group">
                                             <input type="text" class="form-control" id="kode_member" value="{{ $memberSelected->kode_member }}" style="border-radius: 10px 0 0 10px;">
                                             <span class="input-group-btn">
-                                                <button onclick="tampilMember()" class="btn btn-info btn-flat" type="button" style="border-radius: 0 10px 10px 0;"><i class="fa fa-arrow-right"></i></button>
+                                                <button onclick="tampilMember()" class="btn-trans btn-main" type="button" style="border-radius: 0 10px 10px 0;"><i class="mynaui-arrow-right"></i></button>
                                             </span>
                                         </div>
                                     </div>

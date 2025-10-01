@@ -50,7 +50,11 @@ class PenjualanDetailController extends Controller
             $row = array();
             $row['kode_produk'] = '<span class="label label-success">'. ($item->produk['kode_produk'] ?? 'N/A') .'</span>';
             $row['nama_produk'] = $item->nama_produk ?? $item->produk['nama_produk'] ?? 'Produk Tidak Ditemukan';
-            $row['harga_jual']  = 'Rp. '. format_uang($item->harga_jual);
+            // Tampilkan harga asli untuk item gratis (fallback ke harga produk jika harga_jual tersimpan 0 di data lama)
+            $displayPrice = ($item->is_free_item && (int)($item->harga_jual) === 0)
+                ? ($item->produk['harga_jual'] ?? 0)
+                : $item->harga_jual;
+            $row['harga_jual']  = 'Rp. '. format_uang($displayPrice);
             $row['jumlah']      = '<input type="number" class="form-control input-sm quantity" data-id="'. $item->id_penjualan_detail .'" value="'. $item->jumlah .'">';
             
             $promoInfo = '';
@@ -63,6 +67,7 @@ class PenjualanDetailController extends Controller
             }
             $row['promo'] = $promoInfo;
             
+            // Subtotal selalu berdasarkan kolom subtotal dari DB (item gratis = 0)
             $row['subtotal']    = 'Rp. '. format_uang($item->subtotal);
             $row['aksi']        = '<div class="btn-group">
                                     <button onclick="deleteData(`'. route('transaksi.destroy', $item->id_penjualan_detail) .'`)" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" data-bs-placement="left" title="Hapus Item"><i class="fa fa-trash"></i></button>
@@ -274,9 +279,14 @@ class PenjualanDetailController extends Controller
         
         $detail->jumlah = $newQuantity;
         
-        $basePrice = $detail->harga_jual * $newQuantity;
-        $discountAmount = ($detail->diskon / 100) * $basePrice;
-        $detail->subtotal = $basePrice - $discountAmount;
+        if ($detail->is_free_item) {
+            // Item gratis: subtotal harus selalu 0 meskipun qty berubah
+            $detail->subtotal = 0;
+        } else {
+            $basePrice = $detail->harga_jual * $newQuantity;
+            $discountAmount = ($detail->diskon / 100) * $basePrice;
+            $detail->subtotal = $basePrice - $discountAmount;
+        }
         
         $detail->update();
         

@@ -115,11 +115,17 @@ class DashboardController extends Controller
      */
     private function getSalesMetrics($startDate, $endDate)
     {
-        // 1. Gross Sales - Total penjualan kotor (total_harga) dalam range tanggal
-        $grossSales = Penjualan::whereBetween('created_at', [
-            $startDate . ' 00:00:00',
-            $endDate . ' 23:59:59'
-        ])->sum('total_harga');
+        // 1. Gross Sales - Total penjualan kotor sebelum promo/discount
+        // Hitung dari detail transaksi dengan fallback untuk data lama (free item harga_jual=0)
+        $grossSales = DB::table('penjualan_detail')
+            ->join('penjualan', 'penjualan_detail.id_penjualan', '=', 'penjualan.id_penjualan')
+            ->leftJoin('produk', 'penjualan_detail.id_produk', '=', 'produk.id_produk')
+            ->whereBetween('penjualan.created_at', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59'
+            ])
+            ->selectRaw("SUM((CASE WHEN penjualan_detail.is_free_item = 1 AND penjualan_detail.harga_jual = 0 THEN COALESCE(produk.harga_jual, 0) ELSE penjualan_detail.harga_jual END) * penjualan_detail.jumlah) as gross_sum")
+            ->value('gross_sum') ?? 0;
         
         // 2. Net Sales - Penjualan bersih (yang benar-benar dibayar) setelah diskon dalam range tanggal
         $netSales = Penjualan::whereBetween('created_at', [
@@ -167,7 +173,7 @@ class DashboardController extends Controller
             ])
             ->selectRaw('
                 SUM(
-                    (penjualan_detail.harga_jual * penjualan_detail.jumlah) - 
+                    (penjualan_detail.subtotal) - 
                     (produk.harga_beli * penjualan_detail.jumlah)
                 ) as gross_profit
             ')
@@ -220,7 +226,7 @@ class DashboardController extends Controller
             ->select(
                 'produk.nama_produk',
                 DB::raw('SUM(penjualan_detail.jumlah) as total_terjual'),
-                DB::raw('SUM(penjualan_detail.harga_jual * penjualan_detail.jumlah) as total_omzet')
+                DB::raw('SUM(penjualan_detail.subtotal) as total_omzet')
             )
             ->groupBy('penjualan_detail.id_produk', 'produk.nama_produk')
             ->orderBy('total_terjual', 'desc')
@@ -244,7 +250,7 @@ class DashboardController extends Controller
             ->select(
                 'kategori.nama_kategori',
                 DB::raw('SUM(penjualan_detail.jumlah) as total_terjual'),
-                DB::raw('SUM(penjualan_detail.harga_jual * penjualan_detail.jumlah) as total_omzet')
+                DB::raw('SUM(penjualan_detail.subtotal) as total_omzet')
             )
             ->groupBy('kategori.id_kategori', 'kategori.nama_kategori')
             ->orderBy('total_terjual', 'desc')

@@ -35,19 +35,15 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::match(['get', 'head'], '/', function () {
-    // Use cached activation status to avoid repeated checks
-    $cacheKey = 'root_activation_check';
-    $status = cache($cacheKey);
+    // Check activation status without cache for security
+    $status = checkActivationStatus();
     
-    if ($status === null) {
-        $status = checkActivationStatus();
-        // Cache for 5 minutes since activation status doesn't change frequently
-        cache([$cacheKey => $status], now()->addMinutes(5));
-    }
-    
+    // If activation files are missing or invalid, force activation
     if ($status['status'] !== 'active') {
         return redirect()->route('activation.form');
     }
+    
+    // Only redirect to login if activation is valid
     return redirect()->route('login');
 });
 
@@ -59,11 +55,15 @@ Route::prefix('activation')->name('activation.')->group(function () {
     Route::post('/deactivate', [ActivationController::class, 'deactivate'])->name('deactivate');
 });
 
-Route::get('/login', function () {
-    return view('auth.login');
-})->name('login');
+// Login routes - PROTECTED by activation middleware
+Route::middleware('activation')->group(function () {
+    Route::get('/login', function () {
+        return view('auth.login');
+    })->name('login');
 
-Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login', [LoginController::class, 'login']);
+});
+
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Midtrans Webhook Routes (tidak perlu auth)
