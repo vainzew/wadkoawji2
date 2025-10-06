@@ -62,33 +62,53 @@ function tambah_nol_didepan($value, $threshold = null)
 
 function generateHardwareId()
 {
-    // PERFORMANCE OPTIMIZATION: Cache hardware ID in session (doesn't change during session)
-    // This prevents expensive exec() calls on every request
-    if (session()->has('cached_hardware_id')) {
-        return session('cached_hardware_id');
+    // STABILITY FIX: Cache hardware ID dalam file untuk konsistensi
+    // Session bisa hilang, tapi hardware ID harusnya stabil dalam installation yang sama
+    $hardwareFile = storage_path('app/hardware_id.cache');
+    
+    // Cek cache file dulu
+    if (file_exists($hardwareFile)) {
+        $cachedId = trim(file_get_contents($hardwareFile));
+        if ($cachedId) {
+            return $cachedId;
+        }
     }
 
-    // Generate a unique hardware ID based on system information
-    // This ID should be different on each PC/server to prevent unauthorized copying
+    // Generate hardware ID yang lebih stabil
+    // Fokus ke info yang jarang berubah, hindari MAC address yang unreliable
     $serverInfo = [
-        php_uname('n'), // hostname (unique per machine)
-        php_uname('s'), // OS name
-        php_uname('m'), // machine type (architecture)
-        php_uname('r'), // OS release version
+        php_uname('n'), // hostname
+        php_uname('s'), // OS name  
+        php_uname('m'), // machine type
         $_SERVER['DOCUMENT_ROOT'] ?? 'unknown', // installation path
-        $_SERVER['SERVER_ADDR'] ?? 'no-ip', // Server IP address
+        $_SERVER['SERVER_NAME'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost', // server name
     ];
 
-    // Only try to get MAC address once per session (expensive operation)
-    // This is cached to avoid repeated exec() calls
-    $macAddress = @exec('getmac 2>&1') ?: @exec('ifconfig 2>&1') ?: 'no-mac';
+    // Tambah MAC address tapi dengan fallback yang lebih reliable
+    $macAddress = 'no-mac';
+    
+    // Try different methods untuk MAC address tapi dengan error handling
+    try {
+        $mac1 = @exec('getmac /fo table /nh 2>nul') ?: '';
+        $mac2 = @exec('cat /sys/class/net/*/address 2>/dev/null | head -1') ?: '';
+        $mac3 = @exec('ifconfig 2>/dev/null | grep ether | head -1') ?: '';
+        
+        $macAddress = $mac1 ?: $mac2 ?: $mac3 ?: 'no-mac';
+    } catch (Exception $e) {
+        // Fallback jika exec gagal
+        $macAddress = 'exec-disabled';
+    }
+    
     $serverInfo[] = $macAddress;
 
-    // Create deterministic hardware ID that changes per machine
+    // Create deterministic hardware ID
     $hardwareId = md5(implode('|', array_filter($serverInfo)));
     
-    // Cache in session for performance (hardware doesn't change during session)
-    session(['cached_hardware_id' => $hardwareId]);
+    // Cache ke file untuk stability
+    if (!is_dir(dirname($hardwareFile))) {
+        mkdir(dirname($hardwareFile), 0755, true);
+    }
+    file_put_contents($hardwareFile, $hardwareId);
     
     return $hardwareId;
 }
@@ -121,14 +141,14 @@ function generateInstallationId()
 
 function checkActivationStatus()
 {
-    // SECURITY: Hardware-bound cache to prevent bypass via session/cookie
-    // Cache key includes hardware_id + current hour for auto-invalidation
+    // STABILITY FIX: Hardware-bound cache tanpa hourly invalidation
+    // Ganti date('Y-m-d-H') dengan date('Y-m-d') biar ga expire tiap jam
     $currentHardwareId = generateHardwareId();
-    $cacheKey = 'activation_status_' . $currentHardwareId . '_' . date('Y-m-d-H');
+    $cacheKey = 'activation_status_' . $currentHardwareId . '_' . date('Y-m-d');
     $cachedStatus = cache($cacheKey);
     
-    // Return cached status if available and not expired (2 minutes)
-    // Shorter TTL for better security while maintaining performance
+    // Return cached status if available (extend TTL to 30 minutes for stability)
+    // Masih secure tapi ga terlalu aggressive
     if ($cachedStatus !== null) {
         return $cachedStatus;
     }
@@ -137,7 +157,7 @@ function checkActivationStatus()
 
     if (!file_exists($activationFile)) {
         $result = ['status' => 'not_activated', 'message' => 'Application not activated'];
-        cache([$cacheKey => $result], now()->addMinutes(2));
+        cache([$cacheKey => $result], now()->addMinutes(30));
         return $result;
     }
 
@@ -145,17 +165,41 @@ function checkActivationStatus()
 
     if (!$data || !isset($data['activation_code']) || !isset($data['hardware_id'])) {
         $result = ['status' => 'invalid', 'message' => 'Invalid activation data'];
-        cache([$cacheKey => $result], now()->addMinutes(2));
+        cache([$cacheKey => $result], now()->addMinutes(30));
         return $result;
     }
 
-    // CRITICAL: Always verify hardware ID matches
+    // STABILITY FIX: Add tolerance untuk hardware ID fluctuation
+    // Hardware ID bisa slightly berubah karena system updates, MAC address changes, etc
     if ($data['hardware_id'] !== $currentHardwareId) {
-        // Clear all activation caches on hardware mismatch
-        cache()->forget($cacheKey);
-        $result = ['status' => 'hardware_mismatch', 'message' => 'Hardware mismatch detected'];
-        // Don't cache hardware mismatch - force recheck every time
-        return $result;
+        // Check jika hardware mismatch udah terjadi hari ini
+        $mismatchCacheKey = 'hardware_mismatch_tolerance_' . $currentHardwareId . '_' . date('Y-m-d');
+        $mismatchCount = cache($mismatchCacheKey, 0);
+        
+        // Allow up to 3 hardware mismatches per day untuk account untuk system changes
+        if ($mismatchCount < 3) {
+            // Update activation file dengan hardware ID yang baru
+            $data['hardware_id'] = $currentHardwareId;
+            $data['hardware_updated_at'] = date('Y-m-d H:i:s');
+            
+            $activationFile = storage_path('app/activation.json');
+            file_put_contents($activationFile, json_encode($data, JSON_PRETTY_PRINT));
+            
+            // Increment mismatch counter
+            cache([$mismatchCacheKey => $mismatchCount + 1], now()->addDay());
+            
+            // Log untuk debugging
+            \Log::warning('Hardware ID updated due to system changes', [
+                'old_id' => $data['hardware_id'] ?? 'unknown',
+                'new_id' => $currentHardwareId,
+                'count' => $mismatchCount + 1
+            ]);
+        } else {
+            // Too many mismatches - possible cloning attempt
+            cache()->forget($cacheKey);
+            $result = ['status' => 'hardware_mismatch', 'message' => 'Too many hardware changes detected'];
+            return $result;
+        }
     }
 
     // Check installation ID if exists
@@ -169,23 +213,24 @@ function checkActivationStatus()
         }
     }
 
-    // Verify with server (only once per 30 minutes to reduce server calls)
-    $serverCacheKey = 'server_verification_' . $data['activation_code'] . '_' . date('Y-m-d-H');
+    // STABILITY FIX: Server verification cache dengan interval lebih panjang
+    // Ganti hourly cache dengan daily cache untuk reduce network calls
+    $serverCacheKey = 'server_verification_' . $data['activation_code'] . '_' . date('Y-m-d');
     $serverResult = cache($serverCacheKey);
     
     if ($serverResult === null) {
         $serverResult = verifyActivationWithServer($data['activation_code'], $currentHardwareId);
-        // Cache server verification for 30 minutes
-        cache([$serverCacheKey => $serverResult], now()->addMinutes(30));
+        // Cache server verification for 2 hours - balance antara security dan stability
+        cache([$serverCacheKey => $serverResult], now()->addHours(2));
     }
 
     if ($serverResult['status'] === 'success') {
         $result = ['status' => 'active', 'message' => 'Application activated', 'data' => $data];
-        cache([$cacheKey => $result], now()->addMinutes(2));
+        cache([$cacheKey => $result], now()->addMinutes(30));
         return $result;
     }
 
-    cache([$cacheKey => $serverResult], now()->addMinutes(5));
+    cache([$cacheKey => $serverResult], now()->addMinutes(30));
     return $serverResult;
 }
 

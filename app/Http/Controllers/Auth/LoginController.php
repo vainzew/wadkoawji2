@@ -10,21 +10,10 @@ class LoginController extends Controller
 {
     public function login(Request $request)
     {
-        // Check activation status first with caching to avoid repeated checks
-        $cacheKey = 'login_activation_check';
-        $activationStatus = cache($cacheKey);
+        // STABILITY FIX: Remove duplicate activation check
+        // Activation udah di-check di middleware, ga perlu double check di sini
+        // Double checking malah bikin cache conflict dan race conditions
         
-        if ($activationStatus === null) {
-            $activationStatus = checkActivationStatus();
-            // Cache for 5 minutes since activation status doesn't change frequently
-            cache([$cacheKey => $activationStatus], now()->addMinutes(5));
-        }
-        
-        if ($activationStatus['status'] !== 'active') {
-            return redirect()->route('activation.form')
-                ->with('error', 'Aplikasi belum diaktivasi. ' . $activationStatus['message']);
-        }
-
         $credentials = $request->validate([
             'username' => 'required',
             'password' => 'required'
