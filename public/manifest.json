@@ -1,0 +1,53 @@
+{
+    "name": "Tokobaasu POS",
+    "short_name": "Tokobaasu",
+    "description": "Aplikasi Point of Sale untuk toko retail",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#007bff",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/img/icon-192x192.png",
+            "type": "image/png",
+            "sizes": "192x192",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/img/logo.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Dashboard",
+            "url": "/dashboard",
+            "icons": [
+                {
+                    "src": "/img/icon-192x192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Transaksi",
+            "url": "/transaksi/baru",
+            "icons": [
+                {
+                    "src": "/img/icon-192x192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/img/logo.png",
+            "sizes": "540x720",
+            "type": "image/png"
+        }
+    ]
+}

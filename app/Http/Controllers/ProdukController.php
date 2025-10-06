@@ -6,6 +6,9 @@ use App\Models\Kategori;
 use Illuminate\Http\Request;
 use App\Models\Produk;
 use PDF;
+use Illuminate\Support\Facades\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\ProdukImport;
 
 class ProdukController extends Controller
 {
@@ -131,15 +134,15 @@ class ProdukController extends Controller
             'stok' => 'required|numeric',
             'barcode' => 'nullable|unique:produk,barcode',
             'expired_at' => 'nullable|regex:/\d{2}\/\d{2}/', // Validasi format MM/YY
+            'diskon' => 'nullable|numeric|min:0|max:100',
         ]);
 
         // Generate kode_produk jika belum ada
         $produk = Produk::latest()->first() ?? new Produk();
         $request['kode_produk'] = 'P'. tambah_nol_didepan((int)$produk->id_produk +1, 6);
         
-        // Set default diskon ke 0 karena sekarang pake sistem promo
         $data = $request->all();
-        $data['diskon'] = 0;
+        $data['diskon'] = isset($data['diskon']) && $data['diskon'] !== '' ? (float)$data['diskon'] : 0;
 
         // Simpan data ke database
         $produk = Produk::create($data);
@@ -161,11 +164,11 @@ class ProdukController extends Controller
             'stok' => 'required|numeric',
             'barcode' => 'nullable|unique:produk,barcode,' . $id . ',id_produk',
             'expired_at' => 'nullable|regex:/\d{2}\/\d{2}/', // Validasi format MM/YY
+            'diskon' => 'nullable|numeric|min:0|max:100',
         ]);
 
-        // Set diskon ke 0 karena sekarang pake sistem promo
         $data = $request->all();
-        $data['diskon'] = 0;
+        $data['diskon'] = isset($data['diskon']) && $data['diskon'] !== '' ? (float)$data['diskon'] : 0;
 
         $produk = Produk::find($id);
         $produk->update($data);
@@ -302,4 +305,61 @@ class ProdukController extends Controller
             'status' => 'success',
             'data' => $lowStockProducts
         ], 200);
-    }}
+    }
+
+    /**
+     * Import produk dari Excel/CSV berbasis nama_kategori (auto-create kategori).
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:20480',
+            'mode' => 'nullable|in:insert,upsert',
+        ]);
+
+        $mode = $request->input('mode', 'upsert');
+
+        try {
+            $import = new ProdukImport($mode);
+            Excel::import($import, $request->file('file'));
+
+            $failures = method_exists($import, 'failures') ? $import->failures() : [];
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Import selesai',
+                'summary' => [
+                    'inserted' => $import->inserted,
+                    'updated'  => $import->updated,
+                    'failed'   => is_countable($failures) ? count($failures) : 0,
+                ],
+                'failures' => $failures,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Import gagal: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Unduh template CSV untuk import produk (opsi kategori berdasarkan nama).
+     */
+    public function template()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="template_import_produk.csv"',
+        ];
+
+        $callback = function() {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['nama_produk','nama_kategori','harga_beli','harga_jual','stok','barcode','kode_produk','merk','diskon','expired_at']);
+            fputcsv($out, ['Puyer 16 [renteng]','Obat Bebas','9500','10000','20','0012345678901','','Konimex','0','12/26']);
+            fputcsv($out, ['Sabun Mandi Z','Sabun','4500','6000','50','','','Lifebuoy','0','']);
+            fclose($out);
+        };
+
+        return Response::stream($callback, 200, $headers);
+    }
+}

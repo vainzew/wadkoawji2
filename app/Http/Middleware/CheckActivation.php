@@ -15,24 +15,15 @@ class CheckActivation
             return $next($request);
         }
 
-        // PERFORMANCE OPTIMIZATION: Skip activation check for AJAX requests
-        // Activation is already checked on page load, no need to re-check on every AJAX call
-        // This significantly speeds up pages with multiple AJAX requests (like transaksi)
-        if ($request->ajax() || $request->wantsJson()) {
-            // Only check if session doesn't have activation flag
-            if (session()->has('activation_verified') && session('activation_verified') === true) {
-                return $next($request);
-            }
-        }
-
-        // Check activation status (with smart caching in helper)
+        // SECURITY FIX: ALWAYS check activation status, no session bypass
+        // Performance is maintained through smart hardware-bound caching in helper
+        // Cache hit = ~0.001s, so AJAX requests are still fast but secure
+        
+        // Check activation status (with hardware-bound caching in helper)
         $status = checkActivationStatus();
 
         // If not active, redirect to activation form
         if ($status['status'] !== 'active') {
-            // Clear activation session flag
-            session()->forget('activation_verified');
-            
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'Application not activated',
@@ -43,9 +34,6 @@ class CheckActivation
             return redirect()->route('activation.form')
                 ->with('error', 'Aplikasi belum diaktivasi. ' . $status['message']);
         }
-
-        // Set session flag for AJAX requests to use
-        session(['activation_verified' => true]);
 
         return $next($request);
     }

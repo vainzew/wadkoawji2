@@ -60,14 +60,14 @@
                             <div class="invalid-feedback"></div>
                         </div>
                     </div>
-                    <!-- Field diskon dihilangkan karena sekarang pake sistem promo terpisah -->
-                    <!-- <div class="mb-3 row">
-                        <label for="diskon" class="col-sm-3 col-form-label">Diskon</label>
+                    <div class="mb-3 row">
+                        <label for="diskon" class="col-sm-3 col-form-label">Diskon (%)</label>
                         <div class="col-sm-9">
-                            <input type="number" name="diskon" id="diskon" class="form-control" value="0">
+                            <input type="number" name="diskon" id="diskon" class="form-control" min="0" max="100" step="0.1" value="0" placeholder="0">
+                            <div class="form-text">Diskon cepat per-produk (persentase). Tetap bisa digabung promo.</div>
                             <div class="invalid-feedback"></div>
                         </div>
-                    </div> -->
+                    </div>
                     <div class="mb-3 row">
                         <label for="stok" class="col-sm-3 col-form-label">Stok</label>
                         <div class="col-sm-9">

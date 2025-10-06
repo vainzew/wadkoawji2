@@ -215,12 +215,18 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="form-group row">
-                                    <label for="bayar" class="col-lg-4 control-label">Bayar</label>
-                                    <div class="col-lg-8">
-                                        <input type="text" id="bayarrp" class="form-control" readonly>
-                                    </div>
-                                </div>
+                                <div class="form-group row"> 
+                                    <label for="bayar" class="col-lg-4 control-label">Bayar</label> 
+                                    <div class="col-lg-8"> 
+                                        <input type="text" id="bayarrp" class="form-control" readonly> 
+                                    </div> 
+                                </div> 
+                                <div class="form-group row"> 
+                                    <label for="pajakrp" class="col-lg-4 control-label">PPN</label> 
+                                    <div class="col-lg-8"> 
+                                        <input type="text" id="pajakrp" class="form-control" readonly value="Rp. 0"> 
+                                    </div> 
+                                </div> 
                                 <div class="form-group row">
                                     <label for="diterima" class="col-lg-4 control-label">Diterima</label>
                                     <div class="col-lg-8">
@@ -580,8 +586,11 @@
                 }
                 
                 // Update form fields
-                $('#totalrp').val('Rp. '+ response.data.totalrp);
-                $('#bayarrp').val('Rp. '+ response.data.bayarrp);
+                $('#totalrp').val('Rp. '+ response.data.totalrp); 
+                $('#bayarrp').val('Rp. '+ response.data.bayarrp); 
+                if (response.data.pajakrp !== undefined) { 
+                    $('#pajakrp').val('Rp. ' + response.data.pajakrp); 
+                }
                 $('#bayar').val(response.data.bayar);
                 
                 // Update display based on payment method
@@ -612,11 +621,14 @@
                 
                 // Fallback to manual calculation on error
                 const totalParsed = parseFloat(totalValue) || 0;
-                const bayar = totalParsed - (diskon / 100 * totalParsed);
-                const kembali = (diterima != 0) ? diterima - bayar : 0;
+                const dpp = totalParsed - (diskon / 100 * totalParsed); 
+                const pajak = 0; // fallback when AJAX fails; cannot know setting here 
+                const bayar = dpp + pajak; 
+                const kembali = (diterima != 0) ? diterima - bayar : 0; 
                 
                 $('#totalrp').val('Rp. '+ totalParsed.toLocaleString('id-ID'));
-                $('#bayarrp').val('Rp. '+ bayar.toLocaleString('id-ID'));
+                $('#bayarrp').val('Rp. '+ bayar.toLocaleString('id-ID')); 
+                $('#pajakrp').val('Rp. '+ pajak.toLocaleString('id-ID')); 
                 $('#bayar').val(bayar);
                 
                 const paymentMethod = $('input[name="metode_pembayaran"]:checked').val() || 'CASH';

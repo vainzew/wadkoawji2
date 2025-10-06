@@ -71,16 +71,28 @@
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="5" class="text-right"><b>Total Harga</b></td>
+                <td colspan="5" class="text-right"><b>Subtotal</b></td>
                 <td class="text-right"><b>{{ format_uang($penjualan->total_harga) }}</b></td>
             </tr>
+            @php
+                $settingTaxEnabled = $setting->tax_enabled ?? false;
+                $taxPercent = $setting->diskon ?? 0;
+                $taxAmount = $settingTaxEnabled ? ($taxPercent/100 * $penjualan->total_harga) : 0;
+            @endphp
+            @if($settingTaxEnabled && $taxPercent > 0)
+            <tr>
+                <td colspan="5" class="text-right"><b>PPN {{ rtrim(rtrim(number_format($taxPercent, 1, '.', ''), '0'), '.') }}%</b></td>
+                <td class="text-right"><b>{{ format_uang($taxAmount) }}</b></td>
+            </tr>
+            @endif
             <tr>
                 <td colspan="5" class="text-right"><b>Diskon</b></td>
                 <td class="text-right"><b>{{ format_uang($penjualan->diskon) }}</b></td>
             </tr>
+            @php $grandTotal = $penjualan->total_harga + $taxAmount; @endphp
             <tr>
-                <td colspan="5" class="text-right"><b>Total Bayar</b></td>
-                <td class="text-right"><b>{{ format_uang($penjualan->bayar) }}</b></td>
+                <td colspan="5" class="text-right"><b>Total</b></td>
+                <td class="text-right"><b>{{ format_uang($grandTotal) }}</b></td>
             </tr>
             <tr>
                 <td colspan="5" class="text-right"><b>Metode Pembayaran</b></td>

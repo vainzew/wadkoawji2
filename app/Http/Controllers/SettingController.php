@@ -29,7 +29,9 @@ class SettingController extends Controller
             'nama_perusahaan' => 'required|string|max:255',
             'telepon' => 'required|string|max:20',
             'alamat' => 'required|string',
-            'diskon' => 'nullable|integer|min:0',
+            // 'diskon' akan digunakan sebagai Pajak (%)
+            'diskon' => 'nullable|numeric|min:0|max:100',
+            'tax_enabled' => 'nullable|boolean',
             'tipe_nota' => 'required|in:1,2',
             'path_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'path_kartu_member' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
@@ -56,7 +58,9 @@ class SettingController extends Controller
         $setting->nama_perusahaan = $request->nama_perusahaan;
         $setting->telepon = $request->telepon;
         $setting->alamat = $request->alamat;
-        $setting->diskon = $request->diskon ?? 0; // Default to 0 if null
+        // diskon dipakai sebagai Pajak (%)
+        $setting->diskon = $request->diskon ?? 0; // Pajak (%)
+        $setting->tax_enabled = $request->boolean('tax_enabled', false);
         $setting->tipe_nota = $request->tipe_nota;
 
         // Handle logo upload

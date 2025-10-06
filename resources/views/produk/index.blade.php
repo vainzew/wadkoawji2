@@ -19,7 +19,10 @@
                     <button onclick="deleteSelected('{{ route('produk.delete_selected') }}')" class="btn-with-icon btn-white"><i class="mynaui-trash"></i> Hapus</button>
                     <button onclick="cetakBarcode('{{ route('produk.cetak_barcode') }}')" class="btn-with-icon btn-another"><i class="mynaui-printer"></i> Cetak Barcode</button>
                 </div>
-                <div>
+                <div class="d-flex gap-2">
+                    <button id="btn-import" type="button" class="btn-with-icon btn-another" data-coreui-toggle="modal" data-coreui-target="#modal-import">
+                        <i class="mynaui-upload"></i> Import
+                    </button>
                     <button id="btn-low-stock" type="button" class="btn-with-icon btn-secondary" title="Tampilkan produk stok <= 1">
                         <i class="mynaui-warning"></i> Stock Rendah
                     </button>
@@ -54,6 +57,40 @@
 </div>
 
 @includeIf('produk.form')
+<!-- Import Modal -->
+<div class="modal fade" id="modal-import" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Produk</h5>
+        <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="form-import" enctype="multipart/form-data">
+          @csrf
+          <div class="mb-3">
+            <label class="form-label">File Excel/CSV</label>
+            <input type="file" name="file" class="form-control" accept=".xlsx,.xls,.csv" required>
+            <div class="form-text">Gunakan template: <a href="{{ route('produk.import.template') }}">Download Template</a></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Mode</label>
+            <select name="mode" class="form-select">
+              <option value="upsert" selected>Upsert (update jika ada)</option>
+              <option value="insert">Insert Only</option>
+            </select>
+          </div>
+          <div id="import-result" class="d-none alert" role="alert"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-coreui-dismiss="modal">Tutup</button>
+        <button type="button" id="btn-do-import" class="btn btn-primary">Import</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -190,6 +227,7 @@
                     $('#modal-form [name=merk]').val(response.data.merk);
                     $('#modal-form [name=harga_beli]').val(response.data.harga_beli);
                     $('#modal-form [name=harga_jual]').val(response.data.harga_jual);
+                    $('#modal-form [name=diskon]').val(response.data.diskon ?? 0);
                     $('#modal-form [name=stok]').val(response.data.stok);
                     $('#modal-form [name=expired_at]').val(response.data.expired_at);
                 } else {
@@ -266,5 +304,53 @@
                 .submit();
         }
     }
+</script>
+<script>
+$(function(){
+  $('#btn-do-import').on('click', function(){
+    const form = document.getElementById('form-import');
+    const fd = new FormData(form);
+    const $btn = $(this);
+    $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin me-1"></i> Import...');
+    $('#import-result').removeClass('d-none alert-success alert-danger').addClass('alert-info').text('Mengimpor...');
+
+    $.ajax({
+      url: '{{ route('produk.import') }}',
+      method: 'POST',
+      data: fd,
+      processData: false,
+      contentType: false,
+      success: function(res){
+        const sum = res.summary || {};
+        let msg = 'Selesai. Inserted: ' + (sum.inserted||0) + ', Updated: ' + (sum.updated||0) + ', Failed: ' + (sum.failed||0);
+        // tampilkan detail kegagalan jika ada
+        if (res.failures && res.failures.length) {
+          msg += '\nDetail: ';
+          res.failures.slice(0,5).forEach(function(f){
+            if (f && f.row && f.errors) {
+              msg += `\nBaris ${f.row}: ${f.errors.join(', ')}`;
+            }
+          });
+          if (res.failures.length > 5) msg += `\n(+${res.failures.length-5} baris lainnya)`;
+        }
+        $('#import-result')
+          .removeClass('alert-info alert-danger')
+          .addClass('alert-success')
+          .text(msg);
+        $('.table').DataTable().ajax.reload();
+      },
+      error: function(xhr){
+        const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Import gagal';
+        $('#import-result')
+          .removeClass('alert-info alert-success')
+          .addClass('alert-danger')
+          .text(msg);
+      },
+      complete: function(){
+        $btn.prop('disabled', false).html('Import');
+      }
+    });
+  });
+});
 </script>
 @endpush

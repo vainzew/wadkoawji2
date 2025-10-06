@@ -2,7 +2,7 @@
 <div class="sidebar-brand">
     <div class="sidebar-brand-full">
         <img src="{{ url($setting->path_logo) }}" height="32" alt="{{ $setting->nama_perusahaan }}">
-        <!--<span class="sidebar-brand-text">{{ $setting->nama_perusahaan }}</span> -->
+        <span class="sidebar-brand-text">{{ $setting->nama_perusahaan }}</span>
     </div>
     <div class="sidebar-brand-minimized">
         <img src="{{ url($setting->path_logo) }}" height="24" alt="{{ $setting->nama_perusahaan }}">

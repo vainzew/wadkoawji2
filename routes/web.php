@@ -79,6 +79,8 @@ Route::group(['middleware' => ['auth', 'activation']], function () {
         Route::resource('/kategori', KategoriController::class);
 
         Route::get('/produk/data', [ProdukController::class, 'data'])->name('produk.data');
+        Route::post('/produk/import', [ProdukController::class, 'import'])->name('produk.import');
+        Route::get('/produk/import/template', [ProdukController::class, 'template'])->name('produk.import.template');
         Route::post('/produk/delete-selected', [ProdukController::class, 'deleteSelected'])->name('produk.delete_selected');
         Route::post('/produk/cetak-barcode', [ProdukController::class, 'cetakBarcode'])->name('produk.cetak_barcode');
         Route::resource('/produk', ProdukController::class);
@@ -88,6 +90,14 @@ Route::group(['middleware' => ['auth', 'activation']], function () {
         Route::get('/kas/data', [KasController::class, 'data'])->name('kas.data');
         Route::resource('/kas', KasController::class);
         Route::get('/dashboard/sales-metrics', [DashboardController::class, 'getSalesMetricsAjax'])->name('dashboard.sales-metrics');
+        
+        // Cache management route (admin only)
+        Route::get('/cache/clear', function() {
+            \Illuminate\Support\Facades\Artisan::call('cache:clear');
+            \Illuminate\Support\Facades\Artisan::call('config:clear');
+            \Illuminate\Support\Facades\Artisan::call('view:clear');
+            return redirect()->back()->with('success', 'Cache berhasil dibersihkan!');
+        })->name('cache.clear');
 
         Route::get('/member/data', [MemberController::class, 'data'])->name('member.data');
         Route::post('/member/cetak-member', [MemberController::class, 'cetakMember'])->name('member.cetak_member');

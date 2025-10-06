@@ -16,10 +16,21 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $kategori = Kategori::count();
-        $produk = Produk::count();
-        $supplier = Supplier::count();
-        $member = Member::count();
+        // PERFORMANCE: Cache basic counts (5 minutes) - data jarang berubah drastis
+        $cacheKey = 'dashboard_counts';
+        $counts = cache()->remember($cacheKey, now()->addMinutes(5), function() {
+            return [
+                'kategori' => Kategori::count(),
+                'produk' => Produk::count(),
+                'supplier' => Supplier::count(),
+                'member' => Member::count(),
+            ];
+        });
+        
+        $kategori = $counts['kategori'];
+        $produk = $counts['produk'];
+        $supplier = $counts['supplier'];
+        $member = $counts['member'];
 
         $tanggal_awal = date('Y-m-01');
         $tanggal_akhir = date('Y-m-d');
@@ -29,66 +40,110 @@ class DashboardController extends Controller
         $date_start = date('Y-m-d');
         $date_end = date('Y-m-d');
         
-        // Get sales metrics for default date range
-        $salesMetrics = $this->getSalesMetrics($date_start, $date_end);
+        // PERFORMANCE: Cache sales metrics (2 minutes) - updates lebih sering
+        $metricsKey = 'dashboard_metrics_' . $date_start . '_' . $date_end;
+        $salesMetrics = cache()->remember($metricsKey, now()->addMinutes(2), function() use ($date_start, $date_end) {
+            return $this->getSalesMetrics($date_start, $date_end);
+        });
         
-        // Get top selling products and categories for default date range
-        $topProducts = $this->getTopProducts($date_start, $date_end);
-        $topCategories = $this->getTopCategories($date_start, $date_end);
+        // PERFORMANCE: Cache top products and categories (3 minutes)
+        $topProductsKey = 'dashboard_top_products_' . $date_start . '_' . $date_end;
+        $topProducts = cache()->remember($topProductsKey, now()->addMinutes(3), function() use ($date_start, $date_end) {
+            return $this->getTopProducts($date_start, $date_end);
+        });
         
-        // Get stock alert data
-        $lowStockProducts = $this->getLowStockProducts();
-        $stockStats = $this->getStockStats();
+        $topCategoriesKey = 'dashboard_top_categories_' . $date_start . '_' . $date_end;
+        $topCategories = cache()->remember($topCategoriesKey, now()->addMinutes(3), function() use ($date_start, $date_end) {
+            return $this->getTopCategories($date_start, $date_end);
+        });
+        
+        // PERFORMANCE: Cache stock data (5 minutes) - stok ga berubah tiap detik
+        $lowStockProducts = cache()->remember('dashboard_low_stock', now()->addMinutes(5), function() {
+            return $this->getLowStockProducts();
+        });
+        
+        $stockStats = cache()->remember('dashboard_stock_stats', now()->addMinutes(5), function() {
+            return $this->getStockStats();
+        });
 
         // === DATA GRAFIK HARIAN ===
-        $data_tanggal = array();
-        $data_income = array();
-        $data_outcome = array();
-
-        $temp_tanggal_awal = $tanggal_awal;
-        while (strtotime($temp_tanggal_awal) <= strtotime($tanggal_akhir)) {
-            $data_tanggal[] = (int) substr($temp_tanggal_awal, 8, 2);
-
-            // Income dari penjualan
-            $total_penjualan = Penjualan::where('created_at', 'LIKE', "%$temp_tanggal_awal%")->sum('bayar');
+        // PERFORMANCE: Cache grafik harian (5 minutes) - update cepat untuk hari ini
+        // Cache key include tanggal_akhir untuk real-time updates
+        $grafikHarianKey = 'dashboard_grafik_harian_' . date('Y-m') . '_' . $tanggal_akhir;
+        $grafikHarian = cache()->remember($grafikHarianKey, now()->addMinutes(5), function() use ($tanggal_awal, $tanggal_akhir) {
+            $data_tanggal = array();
+            $data_income = array();
+            $data_outcome = array();
             
-            // Outcome dari pembelian + pengeluaran
-            $total_pembelian = Pembelian::where('created_at', 'LIKE', "%$temp_tanggal_awal%")->sum('bayar');
-            $total_pengeluaran = Pengeluaran::where('created_at', 'LIKE', "%$temp_tanggal_awal%")->sum('nominal');
-            $total_outcome = $total_pembelian + $total_pengeluaran;
+            // OPTIMIZATION: Single query untuk semua hari instead of loop
+            $penjualanData = Penjualan::selectRaw('DATE(created_at) as tanggal, SUM(bayar) as total')
+                ->whereBetween('created_at', [$tanggal_awal . ' 00:00:00', $tanggal_akhir . ' 23:59:59'])
+                ->groupBy('tanggal')
+                ->pluck('total', 'tanggal');
+                
+            $pembelianData = Pembelian::selectRaw('DATE(created_at) as tanggal, SUM(bayar) as total')
+                ->whereBetween('created_at', [$tanggal_awal . ' 00:00:00', $tanggal_akhir . ' 23:59:59'])
+                ->groupBy('tanggal')
+                ->pluck('total', 'tanggal');
+                
+            $pengeluaranData = Pengeluaran::selectRaw('DATE(created_at) as tanggal, SUM(nominal) as total')
+                ->whereBetween('created_at', [$tanggal_awal . ' 00:00:00', $tanggal_akhir . ' 23:59:59'])
+                ->groupBy('tanggal')
+                ->pluck('total', 'tanggal');
 
-            $data_income[] = $total_penjualan;
-            $data_outcome[] = $total_outcome;
+            $temp_tanggal_awal = $tanggal_awal;
+            while (strtotime($temp_tanggal_awal) <= strtotime($tanggal_akhir)) {
+                $data_tanggal[] = (int) substr($temp_tanggal_awal, 8, 2);
+                
+                $data_income[] = $penjualanData[$temp_tanggal_awal] ?? 0;
+                $data_outcome[] = ($pembelianData[$temp_tanggal_awal] ?? 0) + ($pengeluaranData[$temp_tanggal_awal] ?? 0);
 
-            $temp_tanggal_awal = date('Y-m-d', strtotime("+1 day", strtotime($temp_tanggal_awal)));
-        }
+                $temp_tanggal_awal = date('Y-m-d', strtotime("+1 day", strtotime($temp_tanggal_awal)));
+            }
+            
+            return compact('data_tanggal', 'data_income', 'data_outcome');
+        });
+        
+        $data_tanggal = $grafikHarian['data_tanggal'];
+        $data_income = $grafikHarian['data_income'];
+        $data_outcome = $grafikHarian['data_outcome'];
 
         // === DATA GRAFIK BULANAN ===
+        // PERFORMANCE: Cache grafik bulanan (1 hour) - data bulanan lebih stabil
         $current_year = date('Y');
         $data_bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        $data_income_bulanan = array();
-        $data_outcome_bulanan = array();
-
-        for ($i = 1; $i <= 12; $i++) {
-            $month = str_pad($i, 2, '0', STR_PAD_LEFT);
+        
+        $grafikBulananKey = 'dashboard_grafik_bulanan_' . $current_year;
+        $grafikBulanan = cache()->remember($grafikBulananKey, now()->addHour(), function() use ($current_year) {
+            // OPTIMIZATION: Single query untuk semua bulan instead of loop
+            $penjualanBulanan = Penjualan::selectRaw('MONTH(created_at) as bulan, SUM(bayar) as total')
+                ->whereYear('created_at', $current_year)
+                ->groupBy('bulan')
+                ->pluck('total', 'bulan');
+                
+            $pembelianBulanan = Pembelian::selectRaw('MONTH(created_at) as bulan, SUM(bayar) as total')
+                ->whereYear('created_at', $current_year)
+                ->groupBy('bulan')
+                ->pluck('total', 'bulan');
+                
+            $pengeluaranBulanan = Pengeluaran::selectRaw('MONTH(created_at) as bulan, SUM(nominal) as total')
+                ->whereYear('created_at', $current_year)
+                ->groupBy('bulan')
+                ->pluck('total', 'bulan');
             
-            // Income bulanan
-            $income_bulanan = Penjualan::whereYear('created_at', $current_year)
-                                      ->whereMonth('created_at', $i)
-                                      ->sum('bayar');
+            $data_income_bulanan = array();
+            $data_outcome_bulanan = array();
             
-            // Outcome bulanan
-            $pembelian_bulanan = Pembelian::whereYear('created_at', $current_year)
-                                         ->whereMonth('created_at', $i)
-                                         ->sum('bayar');
-            $pengeluaran_bulanan = Pengeluaran::whereYear('created_at', $current_year)
-                                             ->whereMonth('created_at', $i)
-                                             ->sum('nominal');
-            $outcome_bulanan = $pembelian_bulanan + $pengeluaran_bulanan;
-
-            $data_income_bulanan[] = $income_bulanan;
-            $data_outcome_bulanan[] = $outcome_bulanan;
-        }
+            for ($i = 1; $i <= 12; $i++) {
+                $data_income_bulanan[] = $penjualanBulanan[$i] ?? 0;
+                $data_outcome_bulanan[] = ($pembelianBulanan[$i] ?? 0) + ($pengeluaranBulanan[$i] ?? 0);
+            }
+            
+            return compact('data_income_bulanan', 'data_outcome_bulanan');
+        });
+        
+        $data_income_bulanan = $grafikBulanan['data_income_bulanan'];
+        $data_outcome_bulanan = $grafikBulanan['data_outcome_bulanan'];
 
         if (auth()->user()->level == 1) {
             return view('admin.dashboard', compact(

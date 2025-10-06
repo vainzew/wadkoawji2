@@ -200,6 +200,94 @@
     border-color: #6c757d;
 }
 
+/* Align daterange beside DataTables search */
+.dataTables_filter {
+  display: flex !important;
+  justify-content: flex-end;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+.dataTables_filter label {
+  margin-bottom: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: .5rem;
+  width: auto !important;
+  white-space: nowrap;
+}
+#sales-range-wrapper { max-width: 320px; display: inline-flex; align-items: center; }
+.dataTables_filter input[type="search"] { width: 240px; }
+
+/* Order: range kiri, search kanan */
+.dataTables_filter #sales-range-wrapper { order: 1; }
+.dataTables_filter label { order: 2; }
+
+/* Make range input-group match global radius (10px) */
+#sales-range-wrapper .input-group-text {
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+  background: #ffffff;
+  color: #64748b;
+  padding: 0.6rem; /* 10px */
+  min-width: 36px; /* biar square dan seukuran input */
+}
+#sales-range-wrapper .form-control {
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+#sales-range-wrapper .input-group-text, #sales-range-wrapper .form-control {
+  border-color: #e5e7eb;
+  box-shadow: 0 1px 2px rgba(16,24,40,.04);
+}
+#sales-range-wrapper .form-control:focus {
+  border-color: #2B7FFF;
+  box-shadow: 0 0 0 0.15rem rgba(43,127,255,.15);
+}
+#sales-range-wrapper .btn-clear-range {
+  margin-left: 6px;
+  padding: .25rem .5rem;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  color: #475569;
+}
+#sales-range-wrapper .btn-clear-range:hover { background: #e2e8f0; color: #1f2937; }
+
+/* ===================== */
+/* Daterangepicker Theme  */
+/* ===================== */
+.daterangepicker {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .12);
+  overflow: hidden;
+}
+.daterangepicker .drp-calendar { padding: 10px 12px; }
+.daterangepicker .calendar-table { font-size: 12px; }
+.daterangepicker .calendar-table th,
+.daterangepicker .calendar-table td { width: 34px; height: 28px; }
+.daterangepicker .calendar-table td.available:hover { background: #f1f5f9; }
+.daterangepicker .calendar-table td.in-range { background: rgba(43,127,255,.08) !important; }
+.daterangepicker .calendar-table td.active,
+.daterangepicker .calendar-table td.active:hover,
+.daterangepicker .calendar-table td.start-date,
+.daterangepicker .calendar-table td.end-date {
+  background: #2B7FFF !important;
+  color: #fff !important;
+}
+.daterangepicker .drp-buttons { border-top: 1px solid #eef2f7; padding: 8px 12px; }
+.daterangepicker .ranges { padding: 8px; }
+.daterangepicker .ranges li {
+  border-radius: 999px !important;
+  padding: 6px 10px !important;
+  margin: 4px 0 !important;
+}
+.daterangepicker .ranges li:hover { background: #f8fafc; }
+.daterangepicker .ranges li.active { background: #2B7FFF !important; color: #fff !important; }
+.input-group-text i { opacity: .75; }
+
 .btn-secondary:hover {
     color: #fff;
     background-color: #5c636a;
@@ -246,7 +334,8 @@
     color: #6777EF;
 }
 .btn-edit:hover {
-    color: #9FABFF !important;
+    color: #ffffff !important;
+    background-color: #6777EF !important;
 }
 
 .btn-delete {
@@ -254,7 +343,8 @@
     color: #FF0004;
 }
 .btn-delete:hover {
-    color: #ff6f71 !important;
+    color: #ffffff !important;
+    background-color: #FF0004;
 }
 
 /* Untuk button yang ada icon + teks */
@@ -263,6 +353,17 @@
     align-items: center;        /* vertikal center */
     gap: 0.4rem;                /* jarak antara icon & teks */
     padding: 0.375rem 0.75rem;  /* mirip .btn */
+    font-size: 0.875rem;        /* biar konsisten */
+    border-radius: 0.375rem;
+    border: 1px solid transparent;
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-trans {
+    display: inline-flex;       /* biar icon & teks sejajar */
+    align-items: center;        /* vertikal center */
+    gap: 0.4rem;                /* jarak antara icon & teks */
+    padding: 0.575rem 0.75rem;  /* mirip .btn */
     font-size: 0.875rem;        /* biar konsisten */
     border-radius: 0.375rem;
     border: 1px solid transparent;
@@ -332,7 +433,10 @@
     background: transparent;
 }
 
-
+.bg-main {
+    background-color: #6366f1 !important;
+    color: #fff !important;
+}
 /* TABLE STYLING */
 
 /* Bungkus table biar ada radius + shadow */
@@ -354,7 +458,7 @@ table.dataTable {
 
 /* Header table */
 table.dataTable thead th {
-    background: #f9f9f9;
+    background: #f7f7f7;
     border: none !important;
     font-weight: 600;
     color: #333;
@@ -390,13 +494,7 @@ table.dataTable.table-striped > tbody > tr.odd > * {
 
 table.dataTable.table-striped > tbody > tr.even > * {
     box-shadow: none !important;
-    background-color: #e9e9e94b !important; /* full putih */
-}
-
-/* Kalau mau pastiin genap juga putih */
-table.dataTable.stripe tbody tr.even,
-table.dataTable.display tbody tr.even {
-  background-color: #fff !important;
+    background-color: #f8f8f86b !important; /* full putih */
 }
 
 /* Matikan semua striping datatables */

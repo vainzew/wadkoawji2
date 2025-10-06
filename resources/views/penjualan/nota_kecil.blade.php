@@ -125,22 +125,57 @@
 
         <table class="products">
             @foreach ($detail as $item)
+                @php
+                    $namaProduk = $item->nama_produk ?? ($item->produk->nama_produk ?? '-');
+                    $base = (int)($item->harga_jual) * (int)($item->jumlah);
+                    $sub = (int)($item->subtotal);
+                    $disc = max($base - $sub, 0);
+                    $isFree = (bool)($item->is_free_item ?? false);
+                @endphp
                 <tr>
-                    <td colspan="3">{{ $item->nama_produk ?? ($item->produk->nama_produk ?? '-') }}</td>
+                    <td colspan="3">{{ $namaProduk }}</td>
                 </tr>
                 <tr>
-                    <td>{{ format_uang($item->harga_jual) }} x{{ $item->jumlah }}</td>
-                    <td class="text-right">{{ format_uang($item->subtotal) }}</td>
+                    <td colspan="2">{{ format_uang($item->harga_jual) }} x{{ $item->jumlah }}</td>
+                    <td class="text-right">{{ format_uang($sub) }}</td>
                 </tr>
+                @if(!$isFree && $disc > 0)
+                <tr>
+                    <td colspan="2">
+                        @php
+                            $diskonPersen = isset($item->diskon) ? (float)$item->diskon : null;
+                            $labelDiskon = $diskonPersen ? ('Diskon ' . rtrim(rtrim(number_format($diskonPersen, 1, '.', ''), '0'), '.') . '%') : 'Diskon';
+                        @endphp
+                        <span>{{ $labelDiskon }}</span>
+                    </td>
+                    <td class="text-right">-{{ format_uang($disc) }}</td>
+                </tr>
+                @endif
             @endforeach
         </table>
 
         <div class="divider"></div>
 
         <table class="totals">
+            @php
+                $settingTaxEnabled = $setting->tax_enabled ?? false;
+                $taxPercent = $setting->diskon ?? 0; // interpret as tax percent
+                $taxAmount = $settingTaxEnabled ? ($taxPercent/100 * $penjualan->total_harga) : 0;
+                $grandTotal = $penjualan->total_harga + $taxAmount;
+            @endphp
+            <tr>
+                <td>SUBTOTAL</td>
+                <td class="text-right">{{ format_uang($penjualan->total_harga) }}</td>
+            </tr>
+            @if($settingTaxEnabled && $taxPercent > 0)
+            <tr>
+                <td>PPN {{ rtrim(rtrim(number_format($taxPercent, 1, '.', ''), '0'), '.') }}%</td>
+                <td class="text-right">{{ format_uang($taxAmount) }}</td>
+            </tr>
+            @endif
             <tr>
                 <td>TOTAL</td>
-                <td class="text-right">{{ format_uang($penjualan->total_harga) }}</td>
+                <td class="text-right">{{ format_uang($grandTotal) }}</td>
             </tr>
             @if($penjualan->metode_pembayaran === 'CASH')
             <tr>

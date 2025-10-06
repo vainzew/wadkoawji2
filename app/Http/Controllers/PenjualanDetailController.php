@@ -141,8 +141,10 @@ class PenjualanDetailController extends Controller
             $detail->nama_produk = $produk->nama_produk;
             $detail->harga_jual = $produk->harga_jual;
             $detail->jumlah = 1;
-            $detail->diskon = 0;
-            $detail->subtotal = $produk->harga_jual;
+            // Awali dengan diskon produk (persen) jika ada
+            $detail->diskon = (float)($produk->diskon ?? 0);
+            $basePrice = $detail->harga_jual * $detail->jumlah;
+            $detail->subtotal = $basePrice - (($detail->diskon / 100) * $basePrice);
             $detail->save();
 
             // BAGIAN 2: Logika Promo (Versi Asli Milikmu yang Dikembalikan)
@@ -183,13 +185,15 @@ class PenjualanDetailController extends Controller
                                 switch ($promoResult['type']) {
                                     case 'discount':
                                         if (isset($promoResult['promo'], $promoResult['description'], $promoResult['discount_amount'])) {
-                                            $promoDiscountPercent = ($promoResult['discount_amount'] / $detail->harga_jual) * 100;
-                                            
+                                            $basePrice = $detail->harga_jual * $detail->jumlah;
+                                            $promoDiscountPercent = $basePrice > 0 ? (($promoResult['discount_amount'] / $basePrice) * 100) : 0;
+                                            $totalPercent = min(($detail->diskon ?? 0) + $promoDiscountPercent, 100);
+                                            $newSubtotal = $basePrice - (($totalPercent / 100) * $basePrice);
                                             $detail->update([
                                                 'id_promo' => $promoResult['promo']->id_promo,
                                                 'promo_description' => $promoResult['description'],
-                                                'diskon' => $promoDiscountPercent,
-                                                'subtotal' => $detail->harga_jual - $promoResult['discount_amount']
+                                                'diskon' => $totalPercent,
+                                                'subtotal' => $newSubtotal
                                             ]);
                                             
                                             $promoMessages[] = $promoResult['description'];
@@ -312,13 +316,25 @@ class PenjualanDetailController extends Controller
             $total = floatval($total);
             $diterima = floatval($diterima);
             
-            $bayar   = $total - ($diskon / 100 * $total);
+            // Pajak: gunakan setting->diskon sebagai pajak (%) + tax_enabled toggle
+            $setting = \App\Models\Setting::first();
+            $taxPercent = $setting->diskon ?? 0; // interpreted as Pajak (%)
+            $taxEnabled = (bool)($setting->tax_enabled ?? false);
+
+            $discountAmount = ($diskon / 100 * $total);
+            $dpp = $total - $discountAmount; // dasar pengenaan pajak
+            $taxAmount = $taxEnabled ? ($taxPercent / 100 * $dpp) : 0;
+
+            $bayar   = $dpp + $taxAmount;
             $kembali = ($diterima != 0) ? $diterima - $bayar : 0;
             
             $data    = [
                 'totalrp' => format_uang($total),
                 'bayar' => $bayar,
                 'bayarrp' => format_uang($bayar),
+                'pajak' => $taxAmount,
+                'pajakrp' => format_uang($taxAmount),
+                'pajak_percent' => $taxEnabled ? $taxPercent : 0,
                 'terbilang' => ucwords(terbilang($bayar). ' Rupiah'),
                 'kembalirp' => format_uang($kembali),
                 'kembali_terbilang' => ucwords(terbilang($kembali). ' Rupiah'),

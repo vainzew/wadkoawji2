@@ -121,11 +121,14 @@ function generateInstallationId()
 
 function checkActivationStatus()
 {
-    // Use cache to avoid repeated file I/O and server calls
-    $cacheKey = 'activation_status_' . generateHardwareId();
+    // SECURITY: Hardware-bound cache to prevent bypass via session/cookie
+    // Cache key includes hardware_id + current hour for auto-invalidation
+    $currentHardwareId = generateHardwareId();
+    $cacheKey = 'activation_status_' . $currentHardwareId . '_' . date('Y-m-d-H');
     $cachedStatus = cache($cacheKey);
     
-    // Return cached status if available and not expired (5 minutes)
+    // Return cached status if available and not expired (2 minutes)
+    // Shorter TTL for better security while maintaining performance
     if ($cachedStatus !== null) {
         return $cachedStatus;
     }
@@ -134,7 +137,7 @@ function checkActivationStatus()
 
     if (!file_exists($activationFile)) {
         $result = ['status' => 'not_activated', 'message' => 'Application not activated'];
-        cache([$cacheKey => $result], now()->addMinutes(5));
+        cache([$cacheKey => $result], now()->addMinutes(2));
         return $result;
     }
 
@@ -142,14 +145,16 @@ function checkActivationStatus()
 
     if (!$data || !isset($data['activation_code']) || !isset($data['hardware_id'])) {
         $result = ['status' => 'invalid', 'message' => 'Invalid activation data'];
-        cache([$cacheKey => $result], now()->addMinutes(5));
+        cache([$cacheKey => $result], now()->addMinutes(2));
         return $result;
     }
 
-    $currentHardwareId = generateHardwareId();
+    // CRITICAL: Always verify hardware ID matches
     if ($data['hardware_id'] !== $currentHardwareId) {
+        // Clear all activation caches on hardware mismatch
+        cache()->forget($cacheKey);
         $result = ['status' => 'hardware_mismatch', 'message' => 'Hardware mismatch detected'];
-        cache([$cacheKey => $result], now()->addMinutes(5));
+        // Don't cache hardware mismatch - force recheck every time
         return $result;
     }
 
@@ -157,14 +162,15 @@ function checkActivationStatus()
     if (isset($data['installation_id'])) {
         $currentInstallationId = generateInstallationId();
         if ($data['installation_id'] !== $currentInstallationId) {
+            cache()->forget($cacheKey);
             $result = ['status' => 'installation_mismatch', 'message' => 'Installation ID mismatch - possible cloned installation'];
-            cache([$cacheKey => $result], now()->addMinutes(5));
+            // Don't cache installation mismatch - force recheck
             return $result;
         }
     }
 
     // Verify with server (only once per 30 minutes to reduce server calls)
-    $serverCacheKey = 'server_verification_' . $data['activation_code'];
+    $serverCacheKey = 'server_verification_' . $data['activation_code'] . '_' . date('Y-m-d-H');
     $serverResult = cache($serverCacheKey);
     
     if ($serverResult === null) {
@@ -175,7 +181,7 @@ function checkActivationStatus()
 
     if ($serverResult['status'] === 'success') {
         $result = ['status' => 'active', 'message' => 'Application activated', 'data' => $data];
-        cache([$cacheKey => $result], now()->addMinutes(5));
+        cache([$cacheKey => $result], now()->addMinutes(2));
         return $result;
     }
 

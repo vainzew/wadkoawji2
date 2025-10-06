@@ -96,15 +96,21 @@
                             </div>
                         </div>
                         
-                        <!-- Making diskon optional as requested -->
-                        <div class="row mb-3">
-                            <label for="diskon" class="col-lg-3 col-form-label">Diskon (%)</label>
-                            <div class="col-lg-3">
-                                <input type="number" name="diskon" class="form-control" id="diskon" min="0" max="100" value="0">
-                                <div class="form-text">Opsional - isi 0 jika tidak ingin menggunakan diskon</div>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                        </div>
+                        <!-- Pajak / PPN --> 
+                        <div class="row mb-3"> 
+                            <label for="diskon" class="col-lg-3 col-form-label">PPN (%)</label> 
+                            <div class="col-lg-9"> 
+                                <div class="d-flex align-items-center" style="gap:12px;"> 
+                                    <input type="number" name="diskon" class="form-control" id="diskon" min="0" max="100" step="0.1" value="0" style="max-width:160px;"> 
+                                    <div class="form-check"> 
+                                        <input class="form-check-input" type="checkbox" id="tax_enabled" name="tax_enabled" value="1"> 
+                                        <label class="form-check-label" for="tax_enabled">Aktif</label> 
+                                    </div> 
+                                </div> 
+                                <div class="form-text">Isi nilai pajak (0–100). Contoh: 10 untuk 10%.</div> 
+                                <div class="invalid-feedback"></div> 
+                            </div> 
+                        </div> 
                         
                         <div class="row mb-3">
                             <label for="tipe_nota" class="col-lg-3 col-form-label">Tipe Nota</label>
@@ -182,6 +188,7 @@
                     $('[name=telepon]').val(data.telepon || '');
                     $('[name=alamat]').val(data.alamat || '');
                     $('[name=diskon]').val(data.diskon !== null ? data.diskon : 0);
+                    $('[name=tax_enabled]').prop('checked', !!data.tax_enabled);
                     $('[name=tipe_nota]').val(data.tipe_nota || 1);
                     
                     // Update page title

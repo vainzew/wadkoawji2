@@ -20,6 +20,24 @@
         position: relative;
         margin-bottom: 1.5rem;
     }
+
+    .card-kategori{
+        background-color: #0284c7;
+        color: white;
+    }
+    .card-produk{
+        background-color: #dc2626;
+        color: white;
+    }
+    .card-member{
+        background-color: #059669;
+        color: white;
+    }
+    .card-supplier{
+        background-color: #F97316;
+        color: white;
+    }
+
     .card-stat .card-body {
         padding: 14px 16px;
         min-height: 75px;
@@ -62,13 +80,13 @@
     }
 
     .icon-kategori {
-        background-color: #0EA5E9;
+        background-color: #0284c7;
     }
     .icon-produk {
-        background-color: #EF4444;
+        background-color: #dc2626;
     }
     .icon-member {
-        background-color: #10B981;
+        background-color: #059669;
     }
 
     .icon-supplier {
@@ -258,7 +276,7 @@
 <div class="row g-2 mb-2">
     <div class="col-6 col-md-6 col-lg-3">
         <a href="{{ route('kategori.index') }}" class="text-decoration-none text-dark">
-            <div class="card card-stat">
+            <div class="card card-stat card-kategori">
                 <div class="card-body">
                     <div class="d-flex gap-3 flex-row-reverse justify-content-between align-items-center">
                         <div class="icon-box icon-kategori">
@@ -276,7 +294,7 @@
 
     <div class="col-6 col-md-6 col-lg-3">
         <a href="{{ route('produk.index') }}" class="text-decoration-none text-dark">
-            <div class="card card-stat">
+            <div class="card card-stat card-produk">
                 <div class="card-body">
                     <div class="d-flex gap-3 flex-row-reverse justify-content-between align-items-center">
                         <div class="icon-box icon-produk">
@@ -294,7 +312,7 @@
 
     <div class="col-6 col-md-6 col-lg-3">
         <a href="{{ route('member.index') }}" class="text-decoration-none text-dark">
-            <div class="card card-stat">
+            <div class="card card-stat card-member">
                 <div class="card-body">
                     <div class="d-flex gap-3 flex-row-reverse justify-content-between align-items-center">
                         <div class="icon-box icon-member">
@@ -312,7 +330,7 @@
 
     <div class="col-6 col-md-6 col-lg-3">
         <a href="{{ route('supplier.index') }}" class="text-decoration-none text-dark">
-            <div class="card card-stat">
+            <div class="card card-stat card-supplier">
                 <div class="card-body">
                     <div class="d-flex gap-3 flex-row-reverse justify-content-between align-items-center">
                         <div class="icon-box icon-supplier">
@@ -436,7 +454,7 @@
             <div class="col-6 col-md-4 col-xl-2">
                 <div class="card border-start border-start-primary py-3">
                     <div class="card-body">
-                        <div class="text-muted small text-uppercase mb-2">Transactions</div>
+                        <div class="text-muted small text-uppercase mb-2">Total Transaksi</div>
                         <div class="fs-5 fw-semibold" id="total-transactions">{{ $totalTransactions }}</div>
                     </div>
                 </div>
